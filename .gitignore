@@ -74,6 +74,9 @@ Thumbs.db
 *.sqlite3
 *.pem
 .idea
+
+### Local guides (never push)
+GUIDE.md
 # Node modules
 node_modules/
 
