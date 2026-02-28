@@ -25,7 +25,7 @@ CREATE TABLE UserInfo (
 	PhoneNumber CHAR(10),
 	Email VARCHAR(255),
 	UserName VARCHAR(255) NOT NULL UNIQUE,
-	Gender CHAR(1) CHECK (Gender IN ('M', 'F')), 
+	Gender CHAR(1) CHECK (Gender IN ('M', 'F', 'O')),
 	BirthDate DATE, 
 	Age AS (DATEDIFF(YEAR, BirthDate, GETDATE())),
 	Address VARCHAR(500),
