@@ -20,11 +20,13 @@ public class JwtService {
   /**
    * Generates a JWT token for the given username + role.
    * @param username the username for which to generate the token
+   * @param role the role of the user ('C' for customer, 'A' for admin, 'B' for Buyer) to include in the token claims
    * @return a JWT token as a String
    */
   public String generateJwtToken(String username, String role) {
     return Jwts.builder()
-            .subject(username + ":" + role)
+            .claim("role", role)
+            .subject(username)
             .issuedAt(new Date())
             .expiration(new Date(System.currentTimeMillis() + jwtExpirationInMs))
             .signWith(this.getSigningKey())
@@ -59,6 +61,7 @@ public class JwtService {
    * @return true if the token is valid and matches the expected username and role, false otherwise
    */
   public boolean validateJwtToken(String token, String expectedUsername, char expectedRole) {
+    // Consider passing all user details object instead of individual parameters for better extensibility.
     return this.getUsernameFromJwtToken(token).equals(expectedUsername)
             && this.getRoleFromJwtToken(token).equals(String.valueOf(expectedRole))
             && !this.isExpired(token);
