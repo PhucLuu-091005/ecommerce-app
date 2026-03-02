@@ -2,6 +2,7 @@ package com.ecommerce.controller;
 
 import com.ecommerce.dto.LoginRequest;
 //import com.ecommerce.security.JwtService;
+import com.ecommerce.mapper.UserDetailMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 //  private final UserService userService;
 //  private final JwtService jwtService;
+  private final UserDetailMapper mapper;
 
   @PostMapping("/register")
   public String register() {

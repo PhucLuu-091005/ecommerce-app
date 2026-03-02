@@ -35,6 +35,6 @@ Although JWT is stateless, the validation flow is still linked to the Database t
 4. Populates the authorization info into the `SecurityContextHolder` to complete the request authentication.
 
 ### 5. JJWT Library Notes
-The project uses a modern version of the JJWT library (v0.12.x or higher). The token validation APIs are written according to the latest standards:
+The project uses a modern version of the JJWT library (v0.12.x or higher) from (JJWT Repo)[https://github.com/jwtk/jjwt?tab=readme-ov-file#jwe-example]. The token validation APIs are written according to the latest standards:
 * Uses `Jwts.parser().verifyWith(key).build().parseSignedClaims(token)` instead of the deprecated `parseClaimsJws(token)` method.
 * Uses `.getPayload()` to extract data (Claims) safely and with clear semantics.

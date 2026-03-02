@@ -2,8 +2,10 @@ package com.ecommerce.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -19,14 +21,12 @@ public class JwtService {
 
   /**
    * Generates a JWT token for the given username + role.
-   * @param username the username for which to generate the token
-   * @param role the role of the user ('C' for customer, 'A' for admin, 'B' for Buyer) to include in the token claims
+   * @param userDetails the object contain user details.
    * @return a JWT token as a String
    */
-  public String generateJwtToken(String username, String role) {
+  public String generateJwtToken(UserDetails userDetails) {
     return Jwts.builder()
-            .claim("role", role)
-            .subject(username)
+            .subject(userDetails.getUsername())
             .issuedAt(new Date())
             .expiration(new Date(System.currentTimeMillis() + jwtExpirationInMs))
             .signWith(this.getSigningKey())
@@ -44,28 +44,26 @@ public class JwtService {
   }
 
   /**
-   * Extracts the role from the given JWT token.
-   * @param token the JWT token from which to extract the role
-   * @return the role contained in the token
-   * @throws io.jsonwebtoken.JwtException if the token is invalid or cannot be parsed
-   */
-  public String getRoleFromJwtToken(String token) {
-    return this.getClaimsFromJwtToken(token).get("role", String.class);
-  }
-
-  /**
    * Validates the given JWT token by checking its username, role, and expiration.
    * @param token the JWT token to validate
-   * @param expectedUsername the expected username to compare against the token's subject
-   * @param expectedRole the expected role to compare against the token's role claim
+   * @param userDetail the entity contains user detail
    * @return true if the token is valid and matches the expected username and role, false otherwise
    */
-  public boolean validateJwtToken(String token, String expectedUsername, char expectedRole) {
-    // Consider passing all user details object instead of individual parameters for better extensibility.
+  public boolean validateJwtToken(String token, UserDetails userDetail) {
+    if (userDetail == null) {
+      return false;
+    }
+
+    String expectedUsername = userDetail.getUsername();
+
     return this.getUsernameFromJwtToken(token).equals(expectedUsername)
-            && this.getRoleFromJwtToken(token).equals(String.valueOf(expectedRole))
             && !this.isExpired(token);
   }
+
+//  private <T> T getInfoFromToken(String token, Function<Claims, T> claimsResolver) {
+//    final Claims claims = this.getClaimsFromJwtToken(token);
+//    return claimsResolver.apply(claims);
+//  }
 
   /**
    * Checks if the given JWT token is expired by comparing its expiration date with the current date.
@@ -97,6 +95,7 @@ public class JwtService {
    * @return the SecretKey used for signing JWT tokens
    */
   private SecretKey getSigningKey() {
-    return Keys.hmacShaKeyFor(secretKey.getBytes());
+    byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+    return Keys.hmacShaKeyFor(keyBytes);
   }
 }
