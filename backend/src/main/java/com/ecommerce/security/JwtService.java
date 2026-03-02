@@ -60,11 +60,6 @@ public class JwtService {
             && !this.isExpired(token);
   }
 
-//  private <T> T getInfoFromToken(String token, Function<Claims, T> claimsResolver) {
-//    final Claims claims = this.getClaimsFromJwtToken(token);
-//    return claimsResolver.apply(claims);
-//  }
-
   /**
    * Checks if the given JWT token is expired by comparing its expiration date with the current date.
    * @param token the JWT token to check for expiration
