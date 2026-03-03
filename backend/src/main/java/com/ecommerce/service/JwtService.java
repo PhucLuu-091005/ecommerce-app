@@ -1,4 +1,4 @@
-package com.ecommerce.security;
+package com.ecommerce.service;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -20,13 +20,13 @@ public class JwtService {
   @Value("${jwt.expiration-ms}") long jwtExpirationInMs;
 
   /**
-   * Generates a JWT token for the given username + role.
-   * @param userDetails the object contain user details.
+   * Generates a JWT token for the given username.
+   * @param username the username to be the subject of jwt
    * @return a JWT token as a String
    */
-  public String generateJwtToken(UserDetails userDetails) {
+  public String generateJwtToken(String username) {
     return Jwts.builder()
-            .subject(userDetails.getUsername())
+            .subject(username)
             .issuedAt(new Date())
             .expiration(new Date(System.currentTimeMillis() + jwtExpirationInMs))
             .signWith(this.getSigningKey())

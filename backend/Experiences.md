@@ -38,3 +38,67 @@ Although JWT is stateless, the validation flow is still linked to the Database t
 The project uses a modern version of the JJWT library (v0.12.x or higher) from (JJWT Repo)[https://github.com/jwtk/jjwt?tab=readme-ov-file#jwe-example]. The token validation APIs are written according to the latest standards:
 * Uses `Jwts.parser().verifyWith(key).build().parseSignedClaims(token)` instead of the deprecated `parseClaimsJws(token)` method.
 * Uses `.getPayload()` to extract data (Claims) safely and with clear semantics.
+
+## Spring Boot 3.x & JWT Security Architecture (In-Depth Analysis)
+
+This document provides a detailed explanation of the core mechanics behind a Stateless REST API authentication flow using Spring Security 6.x and JWT. It focuses on the architectural design and component interactions rather than implementation details.
+
+---
+
+### 1. Security Filter (`JwtAuthenticationFilter`)
+
+This class acts as the "Security Checkpoint" at the gateway of the system. Every HTTP Request must pass through this filter before reaching the Controllers (Business Logic).
+
+
+
+**Core Concepts & Mechanics:**
+* **`OncePerRequestFilter`:** This filter extends a Spring abstract class to guarantee that the JWT inspection logic is executed **exactly once** per HTTP Request. This prevents wasting CPU resources on redundant token decryption if the request is forwarded internally within the server.
+* **Inspection Process:** It extracts the `Authorization` header to look for the `Bearer <token>` string. If absent, it allows the request to proceed (leaving the block/allow decision to the `SecurityConfig`). If present, it delegates the token to the `JwtService` to verify the signature and integrity.
+* **`SecurityContextHolder` (The Heart of the Session):** This is a thread-local storage mechanism tied to the current execution thread. If the token is valid, the filter creates an "identity badge" (`UsernamePasswordAuthenticationToken` containing the user's details and roles) and stores it in the `SecurityContextHolder`. When the request reaches the Controller/Service layers, the application simply accesses this context to identify the current user.
+* **`WebAuthenticationDetailsSource`:** This utility attaches technical metadata (such as the Client's IP address and Session ID) to the identity badge, which is highly valuable for audit logging and fraud prevention.
+
+---
+
+### 2. Component Factory (`ApplicationConfig`)
+
+Separating `ApplicationConfig` from `SecurityConfig` is an application of the **Separation of Concerns** principle. This class does not define HTTP access rules; instead, it acts as a "Factory" that constructs core data processing tools and injects them into Spring's central memory (IoC Container).
+
+**Core Beans Constructed:**
+* **`UserDetailsService` (The Record Retriever):** A bridge interface. Its sole responsibility is to take a `username` (or email), query the Database, and return a `UserDetails` object. It does not handle password verification.
+* **`PasswordEncoder` (The Hasher):** Configures the `BCrypt` algorithm. This algorithm not only performs one-way hashing but also automatically generates a "Salt" (a random string mixed into the password) to defend against Rainbow Table attacks.
+* **`AuthenticationProvider` (The Authenticator):** This is where the actual authentication logic resides. It combines the two tools above: it retrieves the user record from the `UserDetailsService`, gets the hasher from the `PasswordEncoder`, and matches the provided raw password against the Database hash. The most common implementation is `DaoAuthenticationProvider`.
+* **`AuthenticationManager` (The Coordinator):** A high-level interface that manages a list of `AuthenticationProvider`s. When a login request occurs, it doesn't process it directly but delegates it to the appropriate Provider.
+
+> **Note on Dependency Injection:** It is highly recommended to use Constructor Injection (via Lombok's `@RequiredArgsConstructor`) for Repositories in these configuration classes, rather than Field Injection (`@Autowired`). This ensures class integrity upon instantiation and simplifies Unit Testing.
+
+---
+
+### 3. HTTP Security Layer (`SecurityConfig`)
+
+This is the "Command Center" of the HTTP system. It enforces authorization rules and assembles the security components.
+
+**Established Mechanisms:**
+* **Disable CSRF (`csrf.disable`):** Cross-Site Request Forgery (CSRF) is an attack that exploits the browser's behavior of automatically sending Session Cookies. Because our architecture uses **Stateless JWTs** attached to the HTTP Header (which must be manually handled by the Frontend), the browser will never automatically send the JWT. Therefore, the system is inherently immune to CSRF, and disabling it prevents unnecessary conflicts.
+* **Stateless Session (`SessionCreationPolicy.STATELESS`):** Instructs Spring Security to absolutely never create a `JSESSIONID` in the Server's RAM. Every request is an independent entity. This forces the JWT filter to authenticate every incoming request, saving Server RAM and making horizontal scaling (Scale-out) effortless.
+* **Access Control (`authorizeHttpRequests`):** Explicitly defines which APIs are public (e.g., `/login`, `/register`), which require specific roles (e.g., `.hasRole("ADMIN")`), and mandates that all other APIs require a valid authentication token.
+* **Filter Registration (`addFilterBefore`):** Inserts our custom `JwtAuthenticationFilter` into the security chain, positioning it *before* Spring's default `UsernamePasswordAuthenticationFilter` to prioritize JWT inspection.
+* **CORS (Cross-Origin Resource Sharing):** Configures permissions allowing external domains (like a React/Vue Frontend running on a different port) to call the API and read response headers without being blocked by the browser's Same-Origin Policy.
+
+---
+
+### 4. Authentication Flow Summary
+
+
+
+To understand how these interfaces interact, here is the lifecycle of a Login Request:
+
+1. **Client** sends an HTTP POST request containing `{email, password}` to the `/login` API.
+2. **Filter** (`JwtAuthenticationFilter`) ignores it because the request does not yet contain a JWT.
+3. **Controller** receives the payload and passes it to the **Service**.
+4. **Service** packages the raw email/password into an unauthenticated `UsernamePasswordAuthenticationToken` object and passes it to the **`AuthenticationManager`**.
+5. **`AuthenticationManager`** iterates through its Providers and delegates the task to the **`DaoAuthenticationProvider`**.
+6. **`DaoAuthenticationProvider`** calls the **`UserDetailsService`** to query the Database and find the user by email.
+7. Upon receiving the `UserDetails` object, the **`DaoAuthenticationProvider`** uses the **`PasswordEncoder`** to verify if the raw password matches the Database hash.
+8. If incorrect, it throws an Exception. If correct, it returns a fully authenticated token back to the **Manager**, which passes it back to the **Service**.
+9. The **Service** takes the valid user details and calls the `JwtService` "factory" to generate the actual JWT string.
+10. The JWT is returned via the HTTP Response to the **Client** to be used for all subsequent requests.

@@ -3,7 +3,7 @@ package com.ecommerce.dto;
 import lombok.Data;
 
 @Data
-public class UserDetailDto {
+public class UserInfoDto {
   private String loginName;
   private String userName;
   private String email;

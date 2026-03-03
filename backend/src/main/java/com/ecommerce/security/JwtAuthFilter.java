@@ -1,5 +1,6 @@
 package com.ecommerce.security;
 
+import com.ecommerce.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +14,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import java.io.IOException;
 
@@ -21,6 +23,9 @@ import java.io.IOException;
 public class JwtAuthFilter extends OncePerRequestFilter {
   private final JwtService jwtService;
   private final UserDetailsService userDetailsService;
+
+  // To throw error to global exception handler
+  private final HandlerExceptionResolver handlerExceptionResolver;
 
   @Override
   protected void doFilterInternal(
@@ -35,20 +40,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
       return;
     }
 
-    // Cut "Bearer " from token to get JWT
-    String jwt = requestAuthHeader.substring(7);
-    String username = this.jwtService.getUsernameFromJwtToken(jwt);
+    try {
+      // Cut "Bearer " from token to get JWT
+      String jwt = requestAuthHeader.substring(7);
+      String username = this.jwtService.getUsernameFromJwtToken(jwt);
 
-    // Has username and no auth context yet
-    if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-      UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-      if (this.jwtService.validateJwtToken(jwt, userDetails)) {
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-        auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-        SecurityContextHolder.getContext().setAuthentication(auth);
+      // Has username and no auth context yet
+      if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+        if (this.jwtService.validateJwtToken(jwt, userDetails)) {
+          UsernamePasswordAuthenticationToken auth =
+                  new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+          auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+          SecurityContextHolder.getContext().setAuthentication(auth);
+        }
       }
+      filterChain.doFilter(request, response);
     }
-    filterChain.doFilter(request, response);
+    catch (Exception e) {
+      handlerExceptionResolver.resolveException(request, response, null, e);
+    }
   }
 }

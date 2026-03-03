@@ -28,7 +28,7 @@ public class SecurityConfig {
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
-        // Turn off the Cross-site request, we use stateless JWT
+        // Turn off the Cross-site request forgery, we use stateless JWT
         .csrf(AbstractHttpConfigurer::disable)
 
         // Role for each API
