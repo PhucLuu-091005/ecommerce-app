@@ -1,9 +1,6 @@
 package com.ecommerce.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import lombok.AllArgsConstructor;
+import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
@@ -16,35 +13,31 @@ import java.util.List;
 
 @Entity
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
 public class UserInfo implements UserDetails {
   @Id
-  @Column(name = "LoginName", length = 100)
-  private String loginName;
-
-  @Column(name = "UserName", length = 100, nullable = false)
+  @Column(length = 100)
   private String userName;
 
-  @Column(name = "Password", nullable = false)
+  @Column(nullable = false)
+  private String displayName;
+
+  @Column(nullable = false)
   private String hashedPassword;
 
-  @Column(name = "Email")
   private String email;
 
-  @Column(name = "PhoneNumber")
   private String phoneNumber;
 
-  @Column(name = "Role", nullable = false)
+  @Column(nullable = false)
   private String role;
 
-  @Column(name = "Birthday")
   private String birthday;
 
 
-//  private Address address;
+  @OneToMany(mappedBy = "userInfo", cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<AddressInfo> addressInfos;
 
-  @Column(name = "Gender")
   private char gender;
 
   @Override

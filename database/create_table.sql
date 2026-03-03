@@ -1,356 +1,340 @@
-USE master;
-GO
+-- ============================================================
+-- PostgreSQL-compatible schema (camelCase column names)
+-- Column names match Java field names directly, no @Column(name=...) needed
+-- ============================================================
 
--- Drop and recreate the 'MyDatabase' database
-IF EXISTS (SELECT 1 FROM sys.databases WHERE name = 'Ecommerce')
-BEGIN
-    ALTER DATABASE Ecommerce SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE Ecommerce;
-END;
-GO
-
--- Create the 'Ecommerce' database
-CREATE DATABASE Ecommerce;
-GO
-
-USE Ecommerce;
-GO
+-- CREATE DATABASE ecommerce;
+-- \c ecommerce
 
 -- ======================================================
 -- Table: UserInfo
 -- ======================================================
-CREATE TABLE UserInfo ( 
-	LoginName VARCHAR(100),
-	Password VARCHAR(255) NOT NULL,
-	PhoneNumber CHAR(10),
-	Email VARCHAR(255),
-	UserName VARCHAR(255) NOT NULL UNIQUE,
-	Gender CHAR(1) CHECK (Gender IN ('M', 'F', 'O')),
-	BirthDate DATE, 
-	Age AS (DATEDIFF(YEAR, BirthDate, GETDATE())),
-	Address VARCHAR(500),
-	-- Constraints
-	PRIMARY KEY (LoginName),
-	CONSTRAINT email_format CHECK (
-		Email IS NULL OR 
-		(
-			Email LIKE '%_@__%.__%'
-			AND Email NOT LIKE '% %' -- No space allowed
-			AND Email NOT LIKE '%@%@%' -- Only one @symbol
-			AND Email NOT LIKE '%.@%' --Not .@
-			AND Email NOT LIKE '%@.%' -- Not @.
-		)
+CREATE TABLE IF NOT EXISTS UserInfo (
+    userName        VARCHAR(100) PRIMARY KEY,
+    hashedPassword  VARCHAR(255) NOT NULL,
+    phoneNumber     CHAR(10),
+    email           VARCHAR(255),
+    displayName     VARCHAR(255) NOT NULL UNIQUE,
+    gender          CHAR(1)  CHECK (gender IN ('M', 'F', 'O')),
+    birthDate       DATE,
+    address         VARCHAR(500),
+    CONSTRAINT email_format CHECK (
+        email IS NULL OR (
+            email LIKE '%_@__%.__%'
+            AND email NOT LIKE '% %'
+            AND email NOT LIKE '%@%@%'
+            AND email NOT LIKE '%.@%'
+            AND email NOT LIKE '%@.%'
+        )
     ),
-	CONSTRAINT contact_method CHECK (
-		PhoneNumber IS NOT NULL or Email IS NOT NULL
-	),
-	CONSTRAINT phonenumber_format CHECK (
-		PhoneNumber IS NULL
-		OR (DATALENGTH(PhoneNumber) = 10 AND PhoneNumber NOT LIKE '%[^0-9]%')
-	)
+    CONSTRAINT contact_method CHECK (phoneNumber IS NOT NULL OR email IS NOT NULL),
+    CONSTRAINT phonenumber_format CHECK (
+        phoneNumber IS NULL
+        OR (LENGTH(phoneNumber) = 10 AND phoneNumber ~ '^[0-9]+$')
+    )
 );
-GO
-
 
 -- ======================================================
 -- Table: Buyer
 -- ======================================================
-CREATE TABLE Buyer (
-	LoginName VARCHAR(100) PRIMARY KEY,
-	MoneySpent BIGINT NOT NULL DEFAULT 0 CHECK (MoneySpent >= 0),
-	-- Constraint
-	FOREIGN KEY (LoginName) REFERENCES UserInfo(LoginName) ON DELETE CASCADE ON UPDATE CASCADE 
+CREATE TABLE IF NOT EXISTS Buyer (
+    userName   VARCHAR(100) PRIMARY KEY,
+    moneySpent BIGINT NOT NULL DEFAULT 0 CHECK (moneySpent >= 0),
+    FOREIGN KEY (userName) REFERENCES UserInfo(userName) ON DELETE CASCADE ON UPDATE CASCADE
 );
-GO
-
 
 -- ======================================================
 -- Table: Seller
 -- ======================================================
-CREATE TABLE Seller (
-	LoginName VARCHAR(100) PRIMARY KEY,
-	ShopName VARCHAR(100) NOT NULL UNIQUE,
-	CitizenIDCard VARCHAR(30) NOT NULL UNIQUE CHECK (CitizenIDCard NOT LIKE '%[^0-9]%'),
-	SellerName VARCHAR(50) NOT NULL UNIQUE,
-	MoneyEarned BIGINT NOT NULL DEFAULT 0 CHECK (MoneyEarned >= 0),
-	-- Constraint
-	FOREIGN KEY (LoginName) REFERENCES UserInfo(LoginName) ON DELETE CASCADE ON UPDATE CASCADE
+CREATE TABLE IF NOT EXISTS Seller (
+    userName      VARCHAR(100) PRIMARY KEY,
+    shopName      VARCHAR(100) NOT NULL UNIQUE,
+    citizenIDCard VARCHAR(30)  NOT NULL UNIQUE CHECK (citizenIDCard ~ '^[0-9]+$'),
+    sellerName    VARCHAR(50)  NOT NULL UNIQUE,
+    moneyEarned   BIGINT       NOT NULL DEFAULT 0 CHECK (moneyEarned >= 0),
+    FOREIGN KEY (userName) REFERENCES UserInfo(userName) ON DELETE CASCADE ON UPDATE CASCADE
 );
-GO
 
 -- ======================================================
--- Table: AddressInfo
+-- Table: AddressInfo  (surrogate PK)
 -- ======================================================
-CREATE TABLE AddressInfo (
-	LoginName VARCHAR(100),
-	AddressID INT IDENTITY(1,1),
-	ContactName VARCHAR(255) NOT NULL,
-	ContactPhoneNumber CHAR(10) NOT NULL CHECK(DATALENGTH(ContactPhoneNumber) = 10 AND ContactPhoneNumber NOT LIKE '[^0-9]%'), -- PhoneNumber contains 10 digits
-	City VARCHAR(100) NOT NULL,
-    District VARCHAR(100) NOT NULL,
-    Commune VARCHAR(100) NOT NULL,
-    DetailAddress VARCHAR(500) NOT NULL,
-    AddressType VARCHAR(50) NOT NULL DEFAULT 'Home' CHECK (AddressType IN ('Home', 'Office')), -- Home or Office
-    IsAddressDefault CHAR(1) NOT NULL DEFAULT 'Y' CHECK (IsAddressDefault IN ('Y', 'N')), -- 0 = True, 1 = False
-	-- Constraints
-	PRIMARY KEY(LoginName, AddressID),
-	FOREIGN KEY (LoginName) REFERENCES UserInfo(LoginName) ON DELETE CASCADE ON UPDATE CASCADE,
+CREATE TABLE IF NOT EXISTS AddressInfo (
+    id                 BIGSERIAL    PRIMARY KEY,
+    userName           VARCHAR(100) NOT NULL,
+    contactName        VARCHAR(255) NOT NULL,
+    contactPhoneNumber CHAR(10)     NOT NULL CHECK (LENGTH(contactPhoneNumber) = 10 AND contactPhoneNumber ~ '^[0-9]+$'),
+    city               VARCHAR(100) NOT NULL,
+    district           VARCHAR(100) NOT NULL,
+    commune            VARCHAR(100) NOT NULL,
+    detailAddress      VARCHAR(500) NOT NULL,
+    addressType        VARCHAR(50)  NOT NULL DEFAULT 'Home' CHECK (addressType IN ('Home', 'Office')),
+    isAddressDefault   CHAR(1)      NOT NULL DEFAULT 'Y'    CHECK (isAddressDefault IN ('Y', 'N')),
+    FOREIGN KEY (userName) REFERENCES UserInfo(userName) ON DELETE CASCADE ON UPDATE CASCADE
 );
-GO
 
-CREATE UNIQUE NONCLUSTERED INDEX idx_UniqueDefaultAddress
-ON AddressInfo(LoginName)
-WHERE IsAddressDefault = 'Y';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_UniqueDefaultAddress
+    ON AddressInfo(userName)
+    WHERE isAddressDefault = 'Y';
+
+-- ======================================================
+-- Table: DeliveryMethod
+-- ======================================================
+CREATE TABLE IF NOT EXISTS DeliveryMethod (
+    methodName VARCHAR(100) PRIMARY KEY
+);
+
+-- ======================================================
+-- Table: DeliveryProvider
+-- ======================================================
+CREATE TABLE IF NOT EXISTS DeliveryProvider (
+    providerName VARCHAR(100) PRIMARY KEY
+);
+
+-- ======================================================
+-- Table: ProvideDelivery  (surrogate PK)
+-- ======================================================
+CREATE TABLE IF NOT EXISTS ProvideDelivery (
+    id           BIGSERIAL    PRIMARY KEY,
+    providerName VARCHAR(100) NOT NULL,
+    methodName   VARCHAR(100) NOT NULL,
+    UNIQUE (providerName, methodName),
+    FOREIGN KEY (providerName) REFERENCES DeliveryProvider(providerName) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (methodName)   REFERENCES DeliveryMethod(methodName)     ON DELETE CASCADE ON UPDATE CASCADE
+);
 
 -- ======================================================
 -- Table: OrderInfo
 -- ======================================================
-CREATE TABLE OrderInfo (
-	OrderID INT IDENTITY(1,1),
-	LoginName VARCHAR(100) NOT NULL,
-	OrderDate DATETIME2 NOT NULL DEFAULT GETDATE(),
-	TotalPrice BIGINT NOT NULL DEFAULT 0 CHECK (TotalPrice >= 0), -- we need to create a trigger from sub order 
-	-- Component of Payment Method
-	BankProviderName VARCHAR(10) NOT NULL DEFAULT 'VCB' CHECK(BankProviderName IN ('VCB', 'OCB', 'MoMo', 'ZaloPay')),
-	AccountID VARCHAR(30) CHECK (AccountID NOT LIKE '[^0-9]%'),
-	AddressID INT NOT NULL,
-	--Constraint
-	PRIMARY KEY (OrderID),
-	FOREIGN KEY (LoginName, AddressID) REFERENCES AddressInfo(LoginName, AddressID) ON DELETE CASCADE ON UPDATE CASCADE
+CREATE TABLE IF NOT EXISTS OrderInfo (
+    orderId          BIGSERIAL    PRIMARY KEY,
+    userName         VARCHAR(100) NOT NULL,
+    orderDate        TIMESTAMP    NOT NULL DEFAULT NOW(),
+    totalPrice       BIGINT       NOT NULL DEFAULT 0 CHECK (totalPrice >= 0),
+    bankProviderName VARCHAR(10)  NOT NULL DEFAULT 'VCB' CHECK (bankProviderName IN ('VCB', 'OCB', 'MoMo', 'ZaloPay')),
+    accountId        VARCHAR(30)  CHECK (accountId ~ '^[0-9]+$'),
+    addressId        BIGINT       NOT NULL,
+    FOREIGN KEY (userName)  REFERENCES Buyer(userName)      ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (addressId) REFERENCES AddressInfo(id)      ON DELETE CASCADE
 );
-GO
 
 -- ======================================================
--- Table: SubOrderInfo
+-- Table: SubOrderInfo  (surrogate PK)
 -- ======================================================
-CREATE TABLE SubOrderInfo (
-	OrderID INT,
-	SubOrderID INT IDENTITY(1,1),
-	TotalSKUPrice BIGINT NOT NULL DEFAULT 0,
-	ShippingStatus VARCHAR(20) NOT NULL DEFAULT 'Preparing' CHECK (ShippingStatus IN ('Preparing', 'Shipping', 'Done', 'Cancelled')),
-	ActualDate DATETIME2 NOT NULL,
-	ExpectedDate DATETIME2 NOT NULL,
-	DeliveryMethodName VARCHAR(100) NOT NULL,
-	DeliveryProviderName VARCHAR(100) NOT NULL,
-	DeliveryPrice INT NOT NULL DEFAULT 0,
-	-- Constraints
-	PRIMARY KEY(OrderID, SubOrderID),
-	FOREIGN KEY (OrderID) REFERENCES OrderInfo(OrderID) ON DELETE CASCADE ON UPDATE CASCADE,
-	CONSTRAINT DeliveryDate CHECK (ActualDate <= ExpectedDate)
+CREATE TABLE IF NOT EXISTS SubOrderInfo (
+    id                   BIGSERIAL    PRIMARY KEY,
+    orderId              BIGINT       NOT NULL,
+    totalSkuPrice        BIGINT       NOT NULL DEFAULT 0,
+    shippingStatus       VARCHAR(20)  NOT NULL DEFAULT 'Preparing'
+                             CHECK (shippingStatus IN ('Preparing', 'Shipping', 'Done', 'Cancelled')),
+    actualDate           TIMESTAMP    NOT NULL,
+    expectedDate         TIMESTAMP    NOT NULL,
+    deliveryMethodName   VARCHAR(100) NOT NULL,
+    deliveryProviderName VARCHAR(100) NOT NULL,
+    deliveryPrice        INT          NOT NULL DEFAULT 0,
+    CONSTRAINT deliveryDate CHECK (actualDate <= expectedDate),
+    FOREIGN KEY (orderId)              REFERENCES OrderInfo(orderId)              ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (deliveryMethodName)   REFERENCES DeliveryMethod(methodName)      ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (deliveryProviderName) REFERENCES DeliveryProvider(providerName)  ON DELETE CASCADE ON UPDATE CASCADE
 );
-GO
-
--- HARD CODE IN FRONT END
-CREATE TABLE DeliveryMethod (
-	MethodName VARCHAR(100) PRIMARY KEY
-);
-GO
-
-CREATE TABLE DeliveryProvider (
-	ProviderName VARCHAR(100) PRIMARY KEY
-);
-GO
-
-
-ALTER TABLE SubOrderInfo ADD FOREIGN KEY (DeliveryMethodName) REFERENCES DeliveryMethod(MethodName) ON DELETE CASCADE ON UPDATE CASCADE;
-GO
-ALTER TABLE SubOrderInfo ADD FOREIGN KEY (DeliveryProviderName) REFERENCES DeliveryProvider(ProviderName) ON DELETE CASCADE ON UPDATE CASCADE;
-GO
 
 -- ======================================================
 -- Table: Cart
 -- ======================================================
-CREATE TABLE Cart (
-	CartID INT IDENTITY(1,1) PRIMARY KEY,
-	LoginName VARCHAR(100) NOT NULL,
-	TotalCost BIGINT NOT NULL DEFAULT 0,
-	-- Constraint
-	FOREIGN KEY (LoginName) REFERENCES UserInfo(LoginName) ON DELETE CASCADE ON UPDATE CASCADE 
+CREATE TABLE IF NOT EXISTS Cart (
+    cartId    BIGSERIAL    PRIMARY KEY,
+    userName  VARCHAR(100) NOT NULL,
+    totalCost BIGINT       NOT NULL DEFAULT 0,
+    FOREIGN KEY (userName) REFERENCES UserInfo(userName) ON DELETE CASCADE ON UPDATE CASCADE
 );
-GO
-
-CREATE TABLE ProvideDelivery (
-	ProviderName VARCHAR(100) REFERENCES DeliveryProvider(ProviderName) ON DELETE CASCADE ON UPDATE CASCADE, 
-	MethodName VARCHAR(100) REFERENCES DeliveryMethod(MethodName) ON DELETE CASCADE ON UPDATE CASCADE,
-	PRIMARY KEY(ProviderName, MethodName)
-);
-GO
 
 -- ======================================================
 -- Table: ProductInfo
 -- ======================================================
-CREATE TABLE ProductInfo (
-	ProductID INT IDENTITY(1,1) PRIMARY KEY,
-	LoginName VARCHAR(100) NOT NULL,
-	ProductName VARCHAR(100) NOT NULL,
-	ProductBrand VARCHAR(100),
-	ProductCategory VARCHAR(100) NOT NULL,
-	ProductDescription VARCHAR(500),
-	ProductMadeIn VARCHAR(100) NOT NULL,
-	-- Constraints
-	FOREIGN KEY (LoginName) REFERENCES Seller(LoginName) ON DELETE CASCADE ON UPDATE CASCADE -- Connect to Seller
+CREATE TABLE IF NOT EXISTS ProductInfo (
+    productId          BIGSERIAL    PRIMARY KEY,
+    userName           VARCHAR(100) NOT NULL,
+    productName        VARCHAR(100) NOT NULL,
+    productBrand       VARCHAR(100),
+    productCategory    VARCHAR(100) NOT NULL,
+    productDescription VARCHAR(500),
+    productMadeIn      VARCHAR(100) NOT NULL,
+    FOREIGN KEY (userName) REFERENCES Seller(userName) ON DELETE CASCADE ON UPDATE CASCADE
 );
-GO
 
 -- ======================================================
--- Table: SKU
+-- Table: SKU  (surrogate PK; natural key: productId + skuName)
 -- ======================================================
-CREATE TABLE SKU (
-	ProductID INT,
-	SKUName VARCHAR(100),
-	Size INT,
-	Price INT NOT NULL,
-	InStockNumber INT NOT NULL DEFAULT 0, -- available amount of product in the shop -> use trigger for this
-	Weight INT,
-	-- Constraints
-	PRIMARY KEY (ProductID, SKUName),
-	FOREIGN KEY (ProductID) REFERENCES ProductInfo(ProductID)
+CREATE TABLE IF NOT EXISTS SKU (
+    id            BIGSERIAL    PRIMARY KEY,
+    productId     BIGINT       NOT NULL,
+    skuName       VARCHAR(100) NOT NULL,
+    size          INT,
+    price         INT          NOT NULL,
+    inStockNumber INT          NOT NULL DEFAULT 0,
+    weight        INT,
+    UNIQUE (productId, skuName),
+    FOREIGN KEY (productId) REFERENCES ProductInfo(productId) ON DELETE CASCADE ON UPDATE CASCADE
 );
-GO
 
 -- ======================================================
--- Table: StoredSKU
+-- Table: StoredSKU  (surrogate PK)
 -- ======================================================
-CREATE TABLE StoredSKU (
-	CartID INT,
-	ProductID INT,
-	SKUName VARCHAR(100),
-	Quantity INT NOT NULL DEFAULT 0,
-	-- Constraints
-	PRIMARY KEY(ProductID, CartID, SKUName),
-	FOREIGN KEY (CartID) REFERENCES Cart(CartID) ON DELETE CASCADE ON UPDATE CASCADE,
-	FOREIGN KEY (ProductID, SKUName) REFERENCES SKU(ProductID, SKUName) ON DELETE CASCADE ON UPDATE CASCADE
-);	
-GO
+CREATE TABLE IF NOT EXISTS StoredSKU (
+    id       BIGSERIAL PRIMARY KEY,
+    cartId   BIGINT    NOT NULL,
+    skuId    BIGINT    NOT NULL,
+    quantity INT       NOT NULL DEFAULT 0,
+    UNIQUE (cartId, skuId),
+    FOREIGN KEY (cartId) REFERENCES Cart(cartId) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (skuId)  REFERENCES SKU(id)      ON DELETE CASCADE ON UPDATE CASCADE
+);
 
 -- ======================================================
--- Table: SubOrderDetail
+-- Table: SubOrderDetail  (surrogate PK)
 -- ======================================================
-CREATE TABLE SubOrderDetail (
-	OrderID INT NOT NULL,
-	SubOrderID INT,
-	ProductID INT NOT NULL,
-	SKUName VARCHAR(100),
-	Quantity INT NOT NULL Default 0,
-	-- Constraints
-	PRIMARY KEY(SubOrderID, SKUName),
-	FOREIGN KEY (OrderID, SubOrderID) REFERENCES SubOrderInfo(OrderID, SubOrderID) ON DELETE CASCADE ON UPDATE CASCADE,
-	FOREIGN KEY (ProductID, SKUName) REFERENCES SKU(ProductID, SKUName) ON DELETE CASCADE ON UPDATE CASCADE
+CREATE TABLE IF NOT EXISTS SubOrderDetail (
+    id         BIGSERIAL PRIMARY KEY,
+    subOrderId BIGINT    NOT NULL,
+    skuId      BIGINT    NOT NULL,
+    quantity   INT       NOT NULL DEFAULT 0,
+    UNIQUE (subOrderId, skuId),
+    FOREIGN KEY (subOrderId) REFERENCES SubOrderInfo(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (skuId)      REFERENCES SKU(id)          ON DELETE CASCADE ON UPDATE CASCADE
 );
-GO
-
-CREATE TABLE SKUImage (
-	ProductID INT,
-	SKUName VARCHAR(100),
-	SKU_URL VARCHAR(200),
-	-- Constraints
-	PRIMARY KEY (ProductID, SKUName, SKU_URL),
-	FOREIGN KEY (ProductID, SKUName) REFERENCES SKU(ProductID, SKUName) ON DELETE CASCADE ON UPDATE CASCADE
-);
-GO
 
 -- ======================================================
--- Table: Comment
+-- Table: SKUImage  (surrogate PK)
 -- ======================================================
-CREATE TABLE Comment (
-	CommentID INT IDENTITY(1,1),
-	LoginName VARCHAR(100) NOT NULL,
-	ProductID INT,
-	SKUName VARCHAR(100),
-	Ratings INT CHECK (Ratings IS NULL OR Ratings BETWEEN 1 AND 5),
-	Content VARCHAR(500),
-	ParentCommentID INT,
-	-- Constraints
-	PRIMARY KEY (CommentID),
-	FOREIGN KEY (LoginName) REFERENCES Buyer(LoginName) ON DELETE CASCADE ON UPDATE CASCADE,
-	-- FOREIGN KEY (ProductID, SKUName) REFERENCES SKU(ProductID, SKUName) ON DELETE SET NULL ON UPDATE CASCADE,
-	-- FOREIGN KEY (ParentCommentID) REFERENCES Comment(CommentID) ON DELETE SET NULL,
-	CONSTRAINT CHK_Comment_NotEmpty CHECK (Ratings IS NOT NULL OR Content IS NOT NULL),
-	FOREIGN KEY (ProductID, SKUName) REFERENCES SKU(ProductID, SKUName) ON DELETE CASCADE ON UPDATE CASCADE,
-	FOREIGN KEY (ParentCommentID) REFERENCES Comment(CommentID)
+CREATE TABLE IF NOT EXISTS SKUImage (
+    id      BIGSERIAL    PRIMARY KEY,
+    skuId   BIGINT       NOT NULL,
+    skuUrl  VARCHAR(200) NOT NULL,
+    UNIQUE (skuId, skuUrl),
+    FOREIGN KEY (skuId) REFERENCES SKU(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
-GO
 
-CREATE TABLE CommentImage (
-	CommentID INT,
-	CommentURL VARCHAR(200),
-	-- Constraints
-	PRIMARY KEY (CommentID, CommentURL),
-	FOREIGN KEY (CommentID) REFERENCES Comment(CommentID) ON DELETE CASCADE ON UPDATE CASCADE
+-- ======================================================
+-- Table: Comment  (self-referential for replies)
+-- ======================================================
+CREATE TABLE IF NOT EXISTS Comment (
+    commentId       BIGSERIAL    PRIMARY KEY,
+    userName        VARCHAR(100) NOT NULL,
+    skuId           BIGINT,
+    ratings         INT  CHECK (ratings IS NULL OR ratings BETWEEN 1 AND 5),
+    content         VARCHAR(500),
+    parentCommentId BIGINT,
+    CONSTRAINT chk_comment_not_empty CHECK (ratings IS NOT NULL OR content IS NOT NULL),
+    FOREIGN KEY (userName)        REFERENCES Buyer(userName)      ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (skuId)           REFERENCES SKU(id)              ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (parentCommentId) REFERENCES Comment(commentId)
 );
-GO
+
+-- ======================================================
+-- Table: CommentImage  (surrogate PK)
+-- ======================================================
+CREATE TABLE IF NOT EXISTS CommentImage (
+    id         BIGSERIAL    PRIMARY KEY,
+    commentId  BIGINT       NOT NULL,
+    commentUrl VARCHAR(200) NOT NULL,
+    UNIQUE (commentId, commentUrl),
+    FOREIGN KEY (commentId) REFERENCES Comment(commentId) ON DELETE CASCADE ON UPDATE CASCADE
+);
 
 -- ======================================================
 -- Table: Voucher
+-- voucherId is BIGSERIAL; code auto-set by trigger
 -- ======================================================
-CREATE TABLE Voucher (
-	VoucherID INT IDENTITY(1,1) NOT NULL UNIQUE,
-	Code AS ('VCH-' + RIGHT('000000' + CAST(VoucherId AS VARCHAR(10)), 6)) PERSISTED PRIMARY KEY, -- persisted = saved to disk + indexable
-	StartedTime DATETIME2 NOT NULL,
-    ExpiredTime DATETIME2 NOT NULL,
-    CurrentUsedNumber INT NOT NULL DEFAULT 0,
-    MaxUsedNumber INT NOT NULL DEFAULT 1,
-    MinMoneyValue INT NOT NULL DEFAULT 0,
-	-- Constraints
-	CONSTRAINT CHK_Voucher_UsedNumber CHECK (CurrentUsedNumber < MaxUsedNumber)
+CREATE TABLE IF NOT EXISTS Voucher (
+    voucherId         BIGSERIAL   PRIMARY KEY,
+    code              VARCHAR(10) UNIQUE,
+    startedTime       TIMESTAMP   NOT NULL,
+    expiredTime       TIMESTAMP   NOT NULL,
+    currentUsedNumber INT         NOT NULL DEFAULT 0,
+    maxUsedNumber     INT         NOT NULL DEFAULT 1,
+    minMoneyValue     INT         NOT NULL DEFAULT 0,
+    CONSTRAINT chk_voucher_used CHECK (currentUsedNumber < maxUsedNumber)
 );
-GO
 
-CREATE TABLE VoucherOffer(
-	VoucherCode VARCHAR(10),
-	ProductID INT,
-	LoginName VARCHAR(100) NOT NULL,
-	-- Constraints
-	PRIMARY KEY (VoucherCode, ProductID),
-	FOREIGN KEY (VoucherCode) REFERENCES Voucher(Code) ON DELETE CASCADE ON UPDATE CASCADE,
-	FOREIGN KEY (ProductID) REFERENCES ProductInfo(ProductID) ON DELETE NO ACTION ON UPDATE NO ACTION,
-	FOREIGN KEY (LoginName) REFERENCES UserInfo(LoginName) ON DELETE NO ACTION ON UPDATE NO ACTION
-); 
-GO
+CREATE OR REPLACE FUNCTION fn_generate_voucher_code()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.code := 'VCH-' || LPAD(CAST(NEW.voucherId AS VARCHAR), 6, '0');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-CREATE TABLE AppliedVoucher(
-	OrderID INT,
-	SubOrderID INT,
-	VoucherCode VARCHAR(10),
-	-- Constraints
-	PRIMARY KEY(OrderID, SubOrderID, VoucherCode),
-	FOREIGN KEY (OrderID, SubOrderID) REFERENCES SubOrderInfo(OrderID, SubOrderID) ON DELETE CASCADE ON UPDATE CASCADE,
-	FOREIGN KEY (VoucherCode) REFERENCES Voucher(Code) ON DELETE CASCADE ON UPDATE CASCADE
+CREATE OR REPLACE TRIGGER trg_voucher_code
+BEFORE INSERT ON Voucher
+FOR EACH ROW EXECUTE FUNCTION fn_generate_voucher_code();
+
+-- ======================================================
+-- Table: PercentageVoucher
+-- ======================================================
+CREATE TABLE IF NOT EXISTS PercentageVoucher (
+    voucherId          BIGINT         PRIMARY KEY,
+    percentageDiscount DECIMAL(10, 2) NOT NULL DEFAULT 0.0,
+    maxAmountAllowed   INT            NOT NULL DEFAULT 1,
+    FOREIGN KEY (voucherId) REFERENCES Voucher(voucherId) ON DELETE CASCADE
 );
-GO
 
-CREATE TABLE PercentageVoucher(
-	Code VARCHAR(10) PRIMARY KEY,
-	PercentageDiscount DECIMAL(10,2) NOT NULL DEFAULT 0.0,
-	MaxAmountAllowed INT NOT NULL DEFAULT 1,
-	-- Constraints
-	FOREIGN KEY (Code) REFERENCES Voucher(Code) ON DELETE CASCADE ON UPDATE CASCADE
+-- ======================================================
+-- Table: FlatDiscountVoucher
+-- ======================================================
+CREATE TABLE IF NOT EXISTS FlatDiscountVoucher (
+    voucherId      BIGINT PRIMARY KEY,
+    discountAmount INT    NOT NULL DEFAULT 0,
+    FOREIGN KEY (voucherId) REFERENCES Voucher(voucherId) ON DELETE CASCADE
 );
-GO
 
-CREATE TABLE FlatDiscountVoucher(
-	Code VARCHAR(10) PRIMARY KEY,
-	DiscountAmount INT NOT NULL DEFAULT 0
+-- ======================================================
+-- Table: VoucherOffer  (surrogate PK)
+-- ======================================================
+CREATE TABLE IF NOT EXISTS VoucherOffer (
+    id        BIGSERIAL    PRIMARY KEY,
+    voucherId BIGINT       NOT NULL,
+    productId BIGINT       NOT NULL,
+    userName  VARCHAR(100) NOT NULL,
+    UNIQUE (voucherId, productId),
+    FOREIGN KEY (voucherId) REFERENCES Voucher(voucherId)      ON DELETE CASCADE,
+    FOREIGN KEY (productId) REFERENCES ProductInfo(productId),
+    FOREIGN KEY (userName)  REFERENCES UserInfo(userName)
 );
-GO
 
-CREATE TABLE DeliveryPartner(
-	LoginName VARCHAR(100),
-	ProviderName VARCHAR(100),
-	-- Constraints
-	PRIMARY KEY (LoginName, ProviderName),
-	FOREIGN KEY (LoginName) REFERENCES UserInfo(LoginName),
-	FOREIGN KEY (ProviderName) REFERENCES DeliveryProvider(ProviderName)
+-- ======================================================
+-- Table: AppliedVoucher  (surrogate PK)
+-- ======================================================
+CREATE TABLE IF NOT EXISTS AppliedVoucher (
+    id         BIGSERIAL PRIMARY KEY,
+    subOrderId BIGINT    NOT NULL,
+    voucherId  BIGINT    NOT NULL,
+    UNIQUE (subOrderId, voucherId),
+    FOREIGN KEY (subOrderId) REFERENCES SubOrderInfo(id)    ON DELETE CASCADE,
+    FOREIGN KEY (voucherId)  REFERENCES Voucher(voucherId)  ON DELETE CASCADE
 );
-GO
 
-CREATE TABLE Withdrawal (
-	WithdrawalID INT IDENTITY(1,1) PRIMARY KEY,
-	LoginName VARCHAR(100) NOT NULL REFERENCES UserInfo(LoginName) ON DELETE CASCADE ON UPDATE CASCADE,
-	WithdrawalAmount INT NOT NULL,
-	WithdrawalTime DATETIME2 NOT NULL,
-	AccountID VARCHAR(30) UNIQUE,
-	ProviderName VARCHAR(100) NOT NULL DEFAULT 'VCB' CHECK (ProviderName IN ('VCB', 'MoMo', 'OCB', 'ZaloPay')),
-	RemainingBalance INT NOT NULL DEFAULT 0 CHECK (RemainingBalance >= 0)
+-- ======================================================
+-- Table: DeliveryPartner  (surrogate PK)
+-- ======================================================
+CREATE TABLE IF NOT EXISTS DeliveryPartner (
+    id           BIGSERIAL    PRIMARY KEY,
+    userName     VARCHAR(100) NOT NULL,
+    providerName VARCHAR(100) NOT NULL,
+    UNIQUE (userName, providerName),
+    FOREIGN KEY (userName)     REFERENCES UserInfo(userName)              ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (providerName) REFERENCES DeliveryProvider(providerName)  ON DELETE CASCADE ON UPDATE CASCADE
 );
-GO
+
+-- ======================================================
+-- Table: Withdrawal
+-- ======================================================
+CREATE TABLE IF NOT EXISTS Withdrawal (
+    withdrawalId     BIGSERIAL    PRIMARY KEY,
+    userName         VARCHAR(100) NOT NULL,
+    withdrawalAmount INT          NOT NULL,
+    withdrawalTime   TIMESTAMP    NOT NULL,
+    accountId        VARCHAR(30)  UNIQUE,
+    providerName     VARCHAR(100) NOT NULL DEFAULT 'VCB'
+                         CHECK (providerName IN ('VCB', 'MoMo', 'OCB', 'ZaloPay')),
+    remainingBalance INT          NOT NULL DEFAULT 0 CHECK (remainingBalance >= 0),
+    FOREIGN KEY (userName) REFERENCES UserInfo(userName) ON DELETE CASCADE ON UPDATE CASCADE
+);

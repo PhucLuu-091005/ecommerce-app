@@ -20,4 +20,8 @@ public class UserInfoService implements UserDetailsService {
             () -> new UsernameNotFoundException("No user with username \"" + username + "\"")
     );
   }
+
+  public void saveUser(UserInfo userInfo) {
+    userDetailRepository.save(userInfo);
+  }
 }
