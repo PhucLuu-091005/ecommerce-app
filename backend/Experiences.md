@@ -102,3 +102,200 @@ To understand how these interfaces interact, here is the lifecycle of a Login Re
 8. If incorrect, it throws an Exception. If correct, it returns a fully authenticated token back to the **Manager**, which passes it back to the **Service**.
 9. The **Service** takes the valid user details and calls the `JwtService` "factory" to generate the actual JWT string.
 10. The JWT is returned via the HTTP Response to the **Client** to be used for all subsequent requests.
+
+---
+
+## Spring Data JPA - Method Naming Convention
+
+When working with Spring Data JPA repositories, the framework provides a powerful feature: **automatic query generation from method names**. This allows developers to define database queries without writing explicit SQL or using `@Query` annotations in most cases.
+
+### 1. Basic Structure
+
+The fundamental pattern is:
+```
+[Action][By][Property][Operator]...[(Optional) OrderBy][Sort Direction]
+```
+
+**Example breakdown:**
+```java
+findBySeller_UserInfo_UserName(String username)
+│      │ └─ Property chain (Nested Relationship)
+│      └─ Condition keyword (always required)
+└─ Action (Method prefix)
+```
+
+### 2. Common Action Prefixes
+
+| Prefix | SQL Operation | Return Type | Example |
+|--------|---------------|------------|---------|
+| `findBy` | SELECT | List/Optional | `findByName(String name)` |
+| `findAll` | SELECT * | List | `findAllByStatus(String status)` |
+| `countBy` | COUNT | Long | `countByStatus(String status)` |
+| `deleteBy` | DELETE | Long (count) | `deleteByStatus(String status)` |
+| `existsBy` | SELECT EXISTS | boolean | `existsByEmail(String email)` |
+| `getBy` | SELECT | List/Optional | `getByEmail(String email)` |
+
+### 3. Operators for Conditions
+
+| Operator | SQL Equivalent | Example | Generated SQL |
+|----------|----------------|---------|---------------|
+| (none) | = | `findByName(String)` | WHERE name = ? |
+| `And` | AND | `findByNameAndStatus(...)` | WHERE name = ? AND status = ? |
+| `Or` | OR | `findByNameOrEmail(...)` | WHERE name = ? OR email = ? |
+| `Is` / `Equals` | = | `findByNameIs(String)` | WHERE name = ? |
+| `Between` | BETWEEN | `findByAgeBetween(int, int)` | WHERE age BETWEEN ? AND ? |
+| `LessThan` | < | `findByAgeLessThan(int)` | WHERE age < ? |
+| `LessThanEqual` | <= | `findByAgeLessThanEqual(int)` | WHERE age <= ? |
+| `GreaterThan` | > | `findByAgeGreaterThan(int)` | WHERE age > ? |
+| `GreaterThanEqual` | >= | `findByAgeGreaterThanEqual(int)` | WHERE age >= ? |
+| `After` | > (for Date) | `findByCreatedDateAfter(LocalDate)` | WHERE created_date > ? |
+| `Before` | < (for Date) | `findByCreatedDateBefore(LocalDate)` | WHERE created_date < ? |
+| `IsNull` | IS NULL | `findByNameIsNull()` | WHERE name IS NULL |
+| `IsNotNull` | IS NOT NULL | `findByNameIsNotNull()` | WHERE name IS NOT NULL |
+| `Like` | LIKE | `findByNameLike(String)` | WHERE name LIKE ? |
+| `NotLike` | NOT LIKE | `findByNameNotLike(String)` | WHERE name NOT LIKE ? |
+| `StartingWith` | LIKE prefix% | `findByNameStartingWith(String)` | WHERE name LIKE ? (with %) |
+| `EndingWith` | LIKE %suffix | `findByNameEndingWith(String)` | WHERE name LIKE ? (with %) |
+| `Containing` | LIKE %text% | `findByNameContaining(String)` | WHERE name LIKE %?% |
+| `NotContaining` | NOT LIKE %text% | `findByNameNotContaining(String)` | WHERE name NOT LIKE %?% |
+| `In` | IN | `findByStatusIn(List<String>)` | WHERE status IN (?) |
+| `NotIn` | NOT IN | `findByStatusNotIn(List<String>)` | WHERE status NOT IN (?) |
+| `Not` | != | `findByStatusNot(String)` | WHERE status != ? |
+| `True` | = true | `findByIsActivatedTrue()` | WHERE is_activated = true |
+| `False` | = false | `findByIsActivatedFalse()` | WHERE is_activated = false |
+| `IgnoreCase` | UPPER/LOWER | `findByNameIgnoreCase(String)` | WHERE UPPER(name) = UPPER(?) |
+
+### 4. Traversing Relationships (Nested Properties)
+
+Use underscore `_` to navigate through entity relationships:
+
+```java
+// ProductInfo -> seller (ManyToOne) -> userInfo (OneToOne) -> userName
+findBySeller_UserInfo_UserName(String username)
+```
+
+**Generated SQL Logic:**
+```sql
+SELECT p FROM ProductInfo p 
+JOIN Seller s ON p.seller_id = s.id
+JOIN UserInfo u ON s.user_info_id = u.id
+WHERE u.user_name = ?
+```
+
+**Key Points:**
+- Each segment before `_` represents a property name
+- Property name must match exactly (case-sensitive)
+- Relationship must exist in the entity model (will throw error if not)
+- Multiple levels of nesting are supported: `findByA_B_C_D_Property(...)`
+
+### 5. Sorting and Ordering
+
+Append `OrderBy` followed by property name and direction:
+
+```java
+// Ascending (default)
+List<ProductInfo> findBySellerOrderByProductNameAsc(Seller seller);
+
+// Descending
+List<ProductInfo> findBySellerOrderByProductNameDesc(Seller seller);
+
+// Multiple fields
+List<ProductInfo> findBySellerOrderByProductNameAscPriceDesc(Seller seller);
+```
+
+### 6. Limiting Results
+
+```java
+// Top N results
+List<ProductInfo> findTop10BySellerOrderByProductNameAsc(Seller seller);
+
+// First N results (same as Top)
+List<ProductInfo> findFirst5BySellerOrderByProductNameAsc(Seller seller);
+```
+
+### 7. Pagination and Sorting
+
+Use `Pageable` parameter from `org.springframework.data.domain`:
+
+```java
+Page<ProductInfo> findBySeller(Seller seller, Pageable pageable);
+
+// Usage in Service:
+PageRequest pageRequest = PageRequest.of(0, 10, Sort.by("productName").ascending());
+Page<ProductInfo> products = repository.findBySeller(seller, pageRequest);
+```
+
+### 8. Distinct Results
+
+```java
+List<ProductInfo> findDistinctProductInfoBySellerOrderByProductName(Seller seller);
+```
+
+### 9. Complex Queries with @Query Annotation
+
+When method names become too long or query logic is complex, use `@Query`:
+
+```java
+// JPQL Query
+@Query("SELECT p FROM ProductInfo p WHERE p.seller.userInfo.userName = :username ORDER BY p.productName ASC")
+List<ProductInfo> findProductsBySeller(@Param("username") String username);
+
+// Native SQL
+@Query(value = "SELECT * FROM ProductInfo WHERE user_name = ?1 ORDER BY product_name ASC", nativeQuery = true)
+List<ProductInfo> findProductsBySellerNative(String username);
+```
+
+### 10. Practical Examples for E-Commerce Repository
+
+```java
+public interface ProductInfoRepository extends JpaRepository<ProductInfo, Long> {
+  
+  // Find all products of a seller
+  List<ProductInfo> findBySeller_UserInfo_UserName(String sellerUsername);
+  
+  // Count products of a seller
+  Long countBySeller_UserInfo_UserName(String sellerUsername);
+  
+  // Check if product exists
+  boolean existsByProductNameAndSeller_UserInfo_UserName(String productName, String sellerUsername);
+  
+  // Find products by category and seller
+  List<ProductInfo> findByProductCategoryAndSeller_UserInfo_UserName(String category, String sellerUsername);
+  
+  // Search products by keyword (partial match, case-insensitive)
+  List<ProductInfo> findByProductNameContainingIgnoreCaseAndSeller_UserInfo_UserName(String keyword, String sellerUsername);
+  
+  // Get products with pagination
+  Page<ProductInfo> findBySeller_UserInfo_UserName(String sellerUsername, Pageable pageable);
+  
+  // Get top 10 newest products
+  List<ProductInfo> findTop10BySellerOrderByProductIdDesc(Seller seller);
+  
+  // Get products sorted by name
+  List<ProductInfo> findBySellerOrderByProductNameAsc(Seller seller);
+}
+```
+
+### 11. Best Practices
+
+✅ **DO:**
+- Keep method names readable (2-3 conditions max)
+- Use `@Query` for complex logic
+- Leverage `Pageable` for large datasets
+- Use `OrderBy` for consistent sorting
+- Test generated queries in integration tests
+
+❌ **DON'T:**
+- Create method names with 5+ conditions (use `@Query` instead)
+- Mix uppercase and lowercase incorrectly (case-sensitive!)
+- Traverse relationships without verifying they exist
+- Store sensitive data in `@Query` string literals (use `@Param`)
+- Forget that method names generate ONE query (no N+1 optimization magic)
+
+### 12. Key Takeaways
+
+1. **Spring Data JPA automatically implements methods** based on naming convention - no manual implementation needed
+2. **Use `_` for nested properties** when traversing relationships
+3. **Method names are case-sensitive** - they must match entity property names exactly
+4. **Method names are one query** - complex logic should use `@Query` annotation
+5. **Combine with `Pageable`** for production-grade pagination and sorting

@@ -1,9 +1,9 @@
 package com.ecommerce.model;
 
 import jakarta.persistence.*;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 
 @Data
 @Entity
@@ -28,4 +28,6 @@ public class ProductInfo {
   private String productDescription;
   @Column(nullable = false)
   private String productMadeIn;
+  @Column(nullable = false)
+  private String productImageUrl;
 }

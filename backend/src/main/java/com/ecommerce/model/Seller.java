@@ -4,13 +4,16 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Entity
 @NoArgsConstructor
 @Table(name = "Seller")
 public class Seller {
-
   @Id
+  private String userName;
+
   @OneToOne
   @MapsId
   @JoinColumn(name = "userName")
@@ -27,4 +30,7 @@ public class Seller {
 
   @Column(nullable = false)
   private Long moneyEarned = 0L;
+
+  @OneToMany(mappedBy = "seller", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+  private List<ProductInfo> productInfos;
 }

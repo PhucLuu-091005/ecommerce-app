@@ -1,13 +1,15 @@
 package com.ecommerce.dto;
 
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 
 /**
  * DTO for login and register response containing JWT token, username, and user role.
  */
-@RequiredArgsConstructor
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class AuthResponse {
-  private final String token;
-  private final String username;
-  private final String role;
+  private String token;
+  private String username;
+  private String role;
 }

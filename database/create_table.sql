@@ -12,12 +12,13 @@
 CREATE TABLE IF NOT EXISTS UserInfo (
     userName        VARCHAR(100) PRIMARY KEY,
     hashedPassword  VARCHAR(255) NOT NULL,
-    phoneNumber     CHAR(10),
+    phoneNumber     VARCHAR(10),
     email           VARCHAR(255),
     displayName     VARCHAR(255) NOT NULL UNIQUE,
-    gender          CHAR(1)  CHECK (gender IN ('M', 'F', 'O')),
+    gender          CHAR(1)      CHECK (gender IN ('M', 'F', 'O')),
     birthDate       DATE,
     address         VARCHAR(500),
+    role            VARCHAR(20)  NOT NULL DEFAULT 'BUYER' CHECK (role IN ('BUYER', 'SELLER', 'ADMIN')),
     CONSTRAINT email_format CHECK (
         email IS NULL OR (
             email LIKE '%_@__%.__%'
@@ -62,13 +63,13 @@ CREATE TABLE IF NOT EXISTS AddressInfo (
     id                 BIGSERIAL    PRIMARY KEY,
     userName           VARCHAR(100) NOT NULL,
     contactName        VARCHAR(255) NOT NULL,
-    contactPhoneNumber CHAR(10)     NOT NULL CHECK (LENGTH(contactPhoneNumber) = 10 AND contactPhoneNumber ~ '^[0-9]+$'),
+    contactPhoneNumber VARCHAR(10)     NOT NULL CHECK (LENGTH(contactPhoneNumber) = 10 AND contactPhoneNumber ~ '^[0-9]+$'),
     city               VARCHAR(100) NOT NULL,
     district           VARCHAR(100) NOT NULL,
     commune            VARCHAR(100) NOT NULL,
     detailAddress      VARCHAR(500) NOT NULL,
     addressType        VARCHAR(50)  NOT NULL DEFAULT 'Home' CHECK (addressType IN ('Home', 'Office')),
-    isAddressDefault   CHAR(1)      NOT NULL DEFAULT 'Y'    CHECK (isAddressDefault IN ('Y', 'N')),
+    isAddressDefault   VARCHAR(1)      NOT NULL DEFAULT 'Y'    CHECK (isAddressDefault IN ('Y', 'N')),
     FOREIGN KEY (userName) REFERENCES UserInfo(userName) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -158,6 +159,7 @@ CREATE TABLE IF NOT EXISTS ProductInfo (
     productCategory    VARCHAR(100) NOT NULL,
     productDescription VARCHAR(500),
     productMadeIn      VARCHAR(100) NOT NULL,
+    productImageUrl      VARCHAR(200) NOT NULL,
     FOREIGN KEY (userName) REFERENCES Seller(userName) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -172,6 +174,7 @@ CREATE TABLE IF NOT EXISTS SKU (
     price         INT          NOT NULL,
     inStockNumber INT          NOT NULL DEFAULT 0,
     weight        INT,
+    imageUrl      VARCHAR(200),
     UNIQUE (productId, skuName),
     FOREIGN KEY (productId) REFERENCES ProductInfo(productId) ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -202,16 +205,6 @@ CREATE TABLE IF NOT EXISTS SubOrderDetail (
     FOREIGN KEY (skuId)      REFERENCES SKU(id)          ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- ======================================================
--- Table: SKUImage  (surrogate PK)
--- ======================================================
-CREATE TABLE IF NOT EXISTS SKUImage (
-    id      BIGSERIAL    PRIMARY KEY,
-    skuId   BIGINT       NOT NULL,
-    skuUrl  VARCHAR(200) NOT NULL,
-    UNIQUE (skuId, skuUrl),
-    FOREIGN KEY (skuId) REFERENCES SKU(id) ON DELETE CASCADE ON UPDATE CASCADE
-);
 
 -- ======================================================
 -- Table: Comment  (self-referential for replies)
@@ -272,7 +265,7 @@ FOR EACH ROW EXECUTE FUNCTION fn_generate_voucher_code();
 -- ======================================================
 CREATE TABLE IF NOT EXISTS PercentageVoucher (
     voucherId          BIGINT         PRIMARY KEY,
-    percentageDiscount DECIMAL(10, 2) NOT NULL DEFAULT 0.0,
+    percentageDiscount DECIMAL(5, 4) NOT NULL DEFAULT 0.0,
     maxAmountAllowed   INT            NOT NULL DEFAULT 1,
     FOREIGN KEY (voucherId) REFERENCES Voucher(voucherId) ON DELETE CASCADE
 );

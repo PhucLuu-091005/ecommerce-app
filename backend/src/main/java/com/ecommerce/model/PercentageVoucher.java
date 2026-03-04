@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @Entity
 @NoArgsConstructor
@@ -16,8 +18,8 @@ public class PercentageVoucher {
   @JoinColumn(name = "voucherId")
   private Voucher voucher;
 
-  @Column(nullable = false)
-  private Double percentageDiscount = 0.0;
+  @Column(nullable = false, precision = 5, scale = 4)
+  private BigDecimal percentageDiscount = BigDecimal.ZERO;
 
   @Column(nullable = false)
   private Integer maxAmountAllowed = 1;

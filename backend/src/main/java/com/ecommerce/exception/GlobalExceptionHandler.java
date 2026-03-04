@@ -8,6 +8,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -55,11 +56,20 @@ public class GlobalExceptionHandler {
     return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
   }
 
+  @ExceptionHandler(ResponseStatusException.class)
+  public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException e) {
+    Map<String, Object> errorResponse = new HashMap<>();
+    errorResponse.put("status", e.getStatusCode().value());
+    errorResponse.put("message", e.getReason());
+    return new ResponseEntity<>(errorResponse, e.getStatusCode());
+  }
+
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Map<String, Object>> handleOverallException(Exception e) {
     Map<String, Object> errorResponse = new HashMap<>();
     errorResponse.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
     errorResponse.put("message", "Cloudflare error, please try again :)))))");
+    errorResponse.put("details", e.getMessage()); // Optionally include exception details for debugging
     return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 }

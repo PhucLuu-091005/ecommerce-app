@@ -8,12 +8,14 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 
 @Entity
 @Data
 @NoArgsConstructor
+@Table(name = "UserInfo")
 public class UserInfo implements UserDetails {
   @Id
   @Column(length = 100)
@@ -27,23 +29,26 @@ public class UserInfo implements UserDetails {
 
   private String email;
 
+  @Column(columnDefinition = "CHAR(10)")
   private String phoneNumber;
 
-  @Column(nullable = false)
-  private String role;
+  @Column(columnDefinition = "CHAR(1)")
+  private Character gender;
 
-  private String birthday;
+  private LocalDate birthDate;
 
+  private String address;
+
+  @Column(nullable = false, length = 20)
+  private String role = "BUYER"; // BUYER | SELLER | ADMIN
 
   @OneToMany(mappedBy = "userInfo", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<AddressInfo> addressInfos;
 
-  private char gender;
-
   @Override
   @NonNull
   public Collection<? extends GrantedAuthority> getAuthorities() {
-    return List.of(new SimpleGrantedAuthority(role));
+    return List.of(new SimpleGrantedAuthority("ROLE_" + role));
   }
 
   @Override
@@ -56,25 +61,5 @@ public class UserInfo implements UserDetails {
   @NonNull
   public String getUsername() {
     return userName;
-  }
-
-  @Override
-  public boolean isAccountNonExpired() {
-    return true;
-  }
-
-  @Override
-  public boolean isAccountNonLocked() {
-    return true;
-  }
-
-  @Override
-  public boolean isCredentialsNonExpired() {
-    return true;
-  }
-
-  @Override
-  public boolean isEnabled() {
-    return true;
   }
 }

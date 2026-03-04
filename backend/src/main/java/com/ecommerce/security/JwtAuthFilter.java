@@ -35,13 +35,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     final String requestAuthHeader = request.getHeader("Authorization");
 
     // No or invalid type of JWT, pass it forward to security, user may not log in yet
-    if (requestAuthHeader == null || requestAuthHeader.startsWith("Bearer")) {
+    if (requestAuthHeader == null || !requestAuthHeader.startsWith("Bearer ")) {
       filterChain.doFilter(request, response);
       return;
     }
 
     try {
-      // Cut "Bearer " from token to get JWT
+      // Cut "Bearer" from token to get JWT
       String jwt = requestAuthHeader.substring(7);
       String username = this.jwtService.getUsernameFromJwtToken(jwt);
 

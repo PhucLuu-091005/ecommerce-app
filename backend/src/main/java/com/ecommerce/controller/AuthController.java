@@ -1,7 +1,7 @@
 package com.ecommerce.controller;
 
-import com.ecommerce.dto.LoginRequest;
 import com.ecommerce.dto.AuthResponse;
+import com.ecommerce.dto.LoginRequest;
 import com.ecommerce.dto.RegisterRequest;
 import com.ecommerce.service.AuthService;
 import lombok.RequiredArgsConstructor;
@@ -26,5 +26,4 @@ public class AuthController {
   public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest loginRequest) {
     return ResponseEntity.ok(authService.login(loginRequest));
   }
-
 }

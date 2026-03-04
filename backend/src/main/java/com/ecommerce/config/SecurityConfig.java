@@ -4,6 +4,7 @@ import com.ecommerce.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -33,10 +34,25 @@ public class SecurityConfig {
 
         // Role for each API
         .authorizeHttpRequests(auth -> auth
-                .requestMatchers("api/auth/**").permitAll()
-                .requestMatchers("api/admin/**").hasRole("ADMIN")
-                .requestMatchers("api/buyer/**").hasAnyRole("ADMIN", "BUYER")
-                .requestMatchers("api/seller/**").hasAnyRole("ADMIN", "SELLER")
+                // Public
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/products").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/products/{id}").permitAll()
+
+                // Admin only
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                // Seller only
+                .requestMatchers(HttpMethod.GET,    "/api/products/mine").hasAnyRole("ADMIN", "SELLER")
+                .requestMatchers(HttpMethod.GET,    "/api/products/earnings").hasAnyRole("ADMIN", "SELLER")
+                .requestMatchers(HttpMethod.POST,   "/api/products").hasAnyRole("ADMIN", "SELLER")
+                .requestMatchers(HttpMethod.PUT,    "/api/products/**").hasAnyRole("ADMIN", "SELLER")
+                .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAnyRole("ADMIN", "SELLER")
+
+                // Buyer only
+                .requestMatchers("/api/orders/**").hasAnyRole("ADMIN", "BUYER")
+                .requestMatchers("/api/cart/**").hasAnyRole("ADMIN", "BUYER")
+                .requestMatchers("/api/addresses/**").hasAnyRole("ADMIN", "BUYER")
 
                 // Other needs authenticated
                 .anyRequest().authenticated()

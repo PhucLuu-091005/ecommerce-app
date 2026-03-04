@@ -32,4 +32,7 @@ public class Sku {
   private Integer inStockNumber = 0;
 
   private Integer weight;
+
+  @Column(length = 200)
+  private String imageUrl;
 }

@@ -21,7 +21,7 @@ public class UserInfoService implements UserDetailsService {
     );
   }
 
-  public void saveUser(UserInfo userInfo) {
-    userDetailRepository.save(userInfo);
+  public UserInfo saveUser(UserInfo userInfo) {
+    return userDetailRepository.save(userInfo);
   }
 }
