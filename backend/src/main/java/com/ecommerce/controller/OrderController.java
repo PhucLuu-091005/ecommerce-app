@@ -36,9 +36,4 @@ public class OrderController {
     orderService.placeOrder(user.getUsername(), orderInfo);
     return ResponseEntity.ok(Map.of("message", "Order placed successfully"));
   }
-
-  @GetMapping("/spending")
-  public ResponseEntity<Map<String, Object>> getSpending(@AuthenticationPrincipal UserDetails user) {
-    return ResponseEntity.ok(Map.of("moneySpent", orderService.getSpending(user.getUsername())));
-  }
 }

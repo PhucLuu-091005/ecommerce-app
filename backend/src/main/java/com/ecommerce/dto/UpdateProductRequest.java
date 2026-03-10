@@ -10,7 +10,7 @@ import java.util.List;
 
 @Data
 @NoArgsConstructor
-public class AddProductRequest {
+public class UpdateProductRequest {
   @NotBlank(message = "Product name is required")
   private String productName;
   
@@ -29,6 +29,5 @@ public class AddProductRequest {
   
   @Valid
   @NotEmpty(message = "At least one SKU is required")
-  private List<SkuInAddProductRequest> skus;
+  private List<UpdateSkuRequest> skus;
 }
-

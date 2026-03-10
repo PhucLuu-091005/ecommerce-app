@@ -54,6 +54,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/cart/**").hasAnyRole("ADMIN", "BUYER")
                 .requestMatchers("/api/addresses/**").hasAnyRole("ADMIN", "BUYER")
 
+                .requestMatchers(HttpMethod.GET,"/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+
                 // Other needs authenticated
                 .anyRequest().authenticated()
         )

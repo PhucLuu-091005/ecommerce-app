@@ -14,6 +14,7 @@ public class ProductInfoDto {
   private String productCategory;
   private String productDescription;
   private String productMadeIn;
+  private String productImageUrl;
   private List<SkuDto> skus;
 }
 

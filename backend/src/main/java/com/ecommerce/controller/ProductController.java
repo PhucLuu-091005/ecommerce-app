@@ -2,8 +2,9 @@ package com.ecommerce.controller;
 
 import com.ecommerce.dto.AddProductRequest;
 import com.ecommerce.dto.ProductInfoDto;
+import com.ecommerce.dto.UpdateProductRequest;
 import com.ecommerce.service.ProductService;
-import com.ecommerce.service.SellerEarningsService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,7 +19,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ProductController {
   private final ProductService productService;
-  private final SellerEarningsService sellerEarningsService;
 
   @GetMapping
   public ResponseEntity<List<ProductInfoDto>> getAllProducts() {
@@ -38,7 +38,7 @@ public class ProductController {
   @PostMapping
   public ResponseEntity<ProductInfoDto> addProduct(
       @AuthenticationPrincipal UserDetails user,
-      @RequestBody AddProductRequest request) {
+      @Valid @RequestBody AddProductRequest request) {
     return ResponseEntity.ok(productService.addProduct(user.getUsername(), request));
   }
 
@@ -46,7 +46,7 @@ public class ProductController {
   public ResponseEntity<ProductInfoDto> updateProduct(
       @AuthenticationPrincipal UserDetails user,
       @PathVariable Long id,
-      @RequestBody AddProductRequest request) {
+      @Valid @RequestBody UpdateProductRequest request) {
     return ResponseEntity.ok(productService.updateProduct(user.getUsername(), id, request));
   }
 
@@ -56,10 +56,5 @@ public class ProductController {
       @PathVariable Long id) {
     productService.deleteProduct(user.getUsername(), id);
     return ResponseEntity.ok(Map.of("message", "Product deleted successfully"));
-  }
-
-  @GetMapping("/earnings")
-  public ResponseEntity<Map<String, Long>> getEarnings(@AuthenticationPrincipal UserDetails user) {
-    return ResponseEntity.ok(Map.of("earnings", sellerEarningsService.getEarnings(user.getUsername())));
   }
 }
